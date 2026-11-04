@@ -31,17 +31,17 @@
 % Reported metrics. Every number in the Results section is defined
 % here; update these values when the models are retrained.
 % ------------------------------------------------------------------
-% Nested, paper-grouped cross-validation (09_f1_optimization.py)
-\newcommand{\FoneCtwo}{0.610}        \newcommand{\FoneCtwoSD}{0.010}
-\newcommand{\FoneCtwoW}{0.685}       \newcommand{\BaseCtwo}{0.420}
-\newcommand{\FoneCthreeP}{0.460}     \newcommand{\FoneCthreePSD}{0.058}
-\newcommand{\FoneCthreePW}{0.824}    \newcommand{\BaseCthreeP}{0.310}
-\newcommand{\FoneCthreeY}{0.445}     \newcommand{\FoneCthreeYSD}{0.026}
-\newcommand{\FoneCthreeYW}{0.516}    \newcommand{\BaseCthreeY}{0.240}
-\newcommand{\FoneCfourY}{0.367}      \newcommand{\FoneCfourYSD}{0.007}
-\newcommand{\FoneCfourYW}{0.459}     \newcommand{\BaseCfourY}{0.180}
-\newcommand{\FoneCfiveP}{0.327}      \newcommand{\FoneCfivePSD}{0.002}
-\newcommand{\FoneCfivePW}{0.426}     \newcommand{\BaseCfiveP}{0.141}
+% Nested, paper-grouped cross-validation (10_f1_improved.py, 5 outer seeds)
+\newcommand{\FoneCtwo}{0.687}        \newcommand{\FoneCtwoSD}{0.042}
+\newcommand{\FoneCtwoW}{0.741}       \newcommand{\BaseCtwo}{0.420}
+\newcommand{\FoneCthreeP}{0.517}     \newcommand{\FoneCthreePSD}{0.040}
+\newcommand{\FoneCthreePW}{0.834}    \newcommand{\BaseCthreeP}{0.310}
+\newcommand{\FoneCthreeY}{0.459}     \newcommand{\FoneCthreeYSD}{0.027}
+\newcommand{\FoneCthreeYW}{0.503}    \newcommand{\BaseCthreeY}{0.240}
+\newcommand{\FoneCfourY}{0.398}      \newcommand{\FoneCfourYSD}{0.038}
+\newcommand{\FoneCfourYW}{0.491}     \newcommand{\BaseCfourY}{0.180}
+\newcommand{\FoneCfiveP}{0.355}      \newcommand{\FoneCfivePSD}{0.036}
+\newcommand{\FoneCfivePW}{0.466}     \newcommand{\BaseCfiveP}{0.141}
 % Surrogate regression (08_genetic algorithms.py, 80/20 split)
 \newcommand{\ConvRMSE}{3.08}   \newcommand{\ConvRsq}{-0.91}
 \newcommand{\YldRMSE}{11.98}   \newcommand{\YldRsq}{-0.05}
@@ -74,8 +74,9 @@ SMOTE/ADASYN oversampling, classifier benchmarking, SHAP interpretation and
 NSGA-II multiobjective optimization. Performance classes were defined directly
 from reported HMF conversion and FDCA yield, and every classifier was evaluated
 by nested cross-validation in which all records from one publication are held
-out together. Across 278 candidate pipelines spanning twelve model families and
-five resampling strategies, the selected models reach a macro-F1 of
+out together. Combining a screen of 278 pipelines (twelve model families, five
+resampling strategies) with decision rules tuned for macro-F1, regress-then-bin
+classifiers and soft-vote ensembles, the selected models reach a macro-F1 of
 \FoneCtwo{}\,$\pm$\,\FoneCtwoSD{} for discriminating high-performance
 ($\geq$90\%) systems, against \BaseCtwo{} for a majority-class predictor, and a
 macro-F1 of \FoneCthreeP{} (weighted-F1 \FoneCthreePW{}) on the three-class
@@ -216,6 +217,10 @@ set.
 with the logarithm of HMF concentration, the HMF-to-electrolyte ratio,
 potential--regime interactions, noble/base-metal indicators and the number of
 distinct metals, giving 72 input features (\texttt{09\_f1\_optimization.py}).
+In the final models (\texttt{10\_f1\_improved.py}), the Pt flag is replaced by an
+anode-only Pt flag, the noble-metal indicator and metal count are recomputed
+accordingly, and three flags record whether temperature, potential and current
+are reported, giving 73 features.
 
 \paragraph{Leakage control.} Conversion, yield, FE and selectivity are never
 used as inputs, nor are free-text fields that describe outcomes (key feature,
@@ -296,6 +301,35 @@ settings. In total, 278 pipelines were evaluated per class scheme.
 Resampling and feature selection are fitted inside each training fold only, so
 synthetic records never enter a test fold.
 
+\subsection{Decision rules and final model pool}
+\label{sec:rules}
+
+Predicting the most probable class favours the dominant class and does not
+maximize macro-F1. The final model pool therefore pairs each model with a
+decision rule tuned for macro-F1:
+\begin{itemize}
+\item \emph{Classifiers} (class-weighted random forest, extra trees,
+  support-vector machine and logistic regression; gradient boosting,
+  $k$-nearest neighbours and a neural network with or without SMOTE) output
+  class probabilities $p_c$, and the predicted class is
+  $\arg\max_c w_c\, p_c$, with per-class weights $w_c$ found by coordinate
+  ascent.
+\item \emph{Regress-then-bin} models (random forest, extra trees, gradient
+  boosting with Huber loss, ridge regression and support-vector regression)
+  predict the continuous quantity from which the classes are defined ($P$, or
+  $Y$ for the yield-based schemes), which is then cut into classes at ordered
+  cut-offs found by coordinate ascent. These models learn from the full
+  outcome scale rather than from class labels alone.
+\item A \emph{soft-vote ensemble} averages the probabilities of the three best
+  classifiers and tunes its own class weights.
+\end{itemize}
+The pool contains 44 candidates: 19 models, each with all 73 features or the
+top 20, with gradient boosting, $k$-nearest neighbours and the neural network
+also run with and without SMOTE.
+Weights and cut-offs are tuned on inner out-of-fold predictions (two repeats of
+three-fold grouped cross-validation) and are then frozen before the outer test
+fold is predicted.
+
 \subsection{Validation protocol}
 \label{sec:validation}
 
@@ -306,13 +340,16 @@ appear in both training and test data.
 \paragraph{Screening.} Each pipeline is scored by five repetitions of
 five-fold grouped cross-validation.
 
-\paragraph{Nested evaluation.} Within each outer training fold, all 278 pipelines
-are ranked by an inner three-fold grouped cross-validation; the best pipeline is
+\paragraph{Nested evaluation.} Within each outer training fold, every candidate
+in the pool, together with its tuned decision rule, is ranked by inner grouped
+cross-validation; the best candidate (or the ensemble, if it ranks higher) is
 refitted on the outer training fold and scored on the held-out publications.
-The outer loop uses five folds and is repeated with two random seeds. Scores
+The outer loop uses five folds and is repeated with five random seeds. Scores
 from this procedure are the headline results, because selecting the best of
 many pipelines on the same folds is optimistically
-biased~\cite{varma2006bias,cawley2010overfitting}.
+biased~\cite{varma2006bias,cawley2010overfitting}. The same nested procedure
+applied to the 278-pipeline screen with plain most-probable-class prediction
+serves as the reference protocol.
 
 \paragraph{Metrics.} The primary metric is macro-averaged F1, which weights all
 classes equally and is therefore sensitive to the minority classes; the
@@ -354,9 +391,9 @@ and is not an NSGA-II objective.
               font=\footnotesize, minimum height=9mm, text width=24mm},
   arr/.style={-{Stealth[length=2mm]}, thick}]
 \node[box] (a) {Literature dataset\\154 records, 99 papers};
-\node[box, right=of a] (b) {Feature\\construction\\(72 / 30 features)};
+\node[box, right=of a] (b) {Feature\\construction\\(73 / 30 features)};
 \node[box, right=of b] (c) {Performance\\classes\\(5 schemes)};
-\node[box, right=of c] (d) {Grouped nested CV\\278 pipelines\\+ oversampling};
+\node[box, right=of c] (d) {Grouped nested CV\\tuned decision\\rules, ensembles};
 \node[box, below=of d] (e) {SHAP\\interpretation};
 \node[box, below=of b] (f) {RF surrogates\\conversion, yield};
 \node[box, left=of f] (g) {Pareto front and\\compromise\\candidates};
@@ -380,20 +417,56 @@ random-forest surrogates and NSGA-II.}
 
 \Cref{tab:nested} and \cref{fig:f1} report the nested, publication-grouped
 scores. All five schemes exceed the majority-class baseline in macro-F1, by
-0.15 (C3-P) to 0.21 (C3-Y). The binary C2 task, which separates systems reaching
+0.21 (C3-P) to 0.27 (C2). The binary C2 task, which separates systems reaching
 at least 90\% performance from the rest, achieves a macro-F1 of
-\FoneCtwo{}\,$\pm$\,\FoneCtwoSD{}. On the three-class C3-P scheme of the
-reference methodology, the weighted-F1 is \FoneCthreePW{}, reflecting accurate
-recognition of the dominant $\geq$80\% class, while the macro-F1 of
-\FoneCthreeP{} reflects the difficulty of the two minority classes with only 9
-and 7 records. Macro-F1 decreases steadily as classes become finer, from
-\FoneCtwo{} for two classes to \FoneCfiveP{} for five.
+\FoneCtwo{}\,$\pm$\,\FoneCtwoSD{}, with class-wise F1 of 0.45--0.62 for the
+$<$90\% class and 0.76--0.84 for the $\geq$90\% class across seeds. On the
+three-class C3-P scheme of the reference methodology, the weighted-F1 is
+\FoneCthreePW{} and the F1 of the dominant $\geq$80\% class is 0.89--0.94,
+while the macro-F1 of \FoneCthreeP{} reflects the difficulty of the two
+minority classes with only 9 and 7 records (F1 of 0.10--0.15 and 0.36--0.63).
+Macro-F1 decreases steadily as classes become finer, from \FoneCtwo{} for two
+classes to \FoneCfiveP{} for five.
+
+\paragraph{Effect of the decision rules.} \Cref{tab:improvement} compares the
+final pool with the reference protocol on identical outer splits. The tuned
+pool improves macro-F1 on every scheme, by 0.083 on C2, 0.042 on C3-P, 0.037
+on C3-Y, 0.021 on C4-Y and 0.008 on C5-P, and improves weighted-F1 on every
+scheme. The gain is largest where the decision threshold matters most: on the
+binary task, reweighting moves predictions towards the minority class that
+plain most-probable-class prediction under-predicts. Across the 125 outer
+folds, the soft-vote ensemble was selected 40 times, followed by the neural
+network (21), class-weighted extra trees (19) and class-weighted logistic
+regression (12). Regress-then-bin models were selected 16 times, most often
+ridge regression on C3-Y, where the classes are cut from yield alone. The seed-to-seed standard deviation of 0.03--0.04 shows
+that the choice of outer split contributes uncertainty of the same order as
+the smaller gains, so the C4-Y and C5-P improvements should be regarded as
+indicative.
 
 \begin{table}[t]
 \centering
-\caption{Nested cross-validation results with publication-grouped splits (outer
-5-fold, two seeds; inner 3-fold selection over 278 pipelines). Values are
-mean\,$\pm$\,s.d.\ over seeds.}
+\caption{Nested macro-F1 (weighted-F1 in parentheses) of the reference protocol
+and the final pool on identical outer splits (seeds 100 and 101).}
+\label{tab:improvement}
+\small
+\begin{tabular}{lccc}
+\toprule
+Scheme & Reference protocol & Final pool & $\Delta$ macro-F1 \\
+\midrule
+C2   & 0.610 (0.685) & 0.693 (0.747) & +0.083 \\
+C3-P & 0.460 (0.824) & 0.502 (0.829) & +0.042 \\
+C3-Y & 0.445 (0.516) & 0.482 (0.531) & +0.037 \\
+C4-Y & 0.367 (0.459) & 0.388 (0.487) & +0.021 \\
+C5-P & 0.327 (0.426) & 0.335 (0.455) & +0.008 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Nested cross-validation results of the final model pool with
+publication-grouped splits (outer 5-fold, five seeds; inner grouped selection
+and decision-rule tuning). Values are mean\,$\pm$\,s.d.\ over seeds.}
 \label{tab:nested}
 \small
 \begin{tabular}{lcccc}
@@ -419,10 +492,11 @@ compared with a majority-class predictor for each class scheme.}
 
 \paragraph{Effect of model selection.} The highest single-pipeline screening
 score on C2 is 0.763 (logistic regression with ADASYN and 20 selected features),
-and on C3-P it is 0.581 (extra trees with random oversampling). The
-corresponding nested scores are 0.153 and 0.121 lower. This gap is the
-optimism introduced by choosing one pipeline from 278 on the same folds, and it
-is why the nested scores are used throughout.
+and on C3-P it is 0.581 (extra trees with random oversampling). Under the
+reference protocol the corresponding nested scores are 0.153 and 0.121 lower.
+This gap is the optimism introduced by choosing one pipeline from 278 on the
+same folds, and it is why nested scores are used throughout. The smaller,
+rule-tuned pool of the final models halves this gap on C2 (0.076).
 
 \paragraph{Classifier families.} \Cref{tab:families} lists the screening
 macro-F1 of the four model families used in the reference
@@ -635,11 +709,12 @@ available, so these variables cannot be optimized.
 We adapted an integrated ML and genetic-algorithm workflow for HMF oxidation to
 the electrochemical route and evaluated it on 154 literature records from 99
 publications. With performance classes defined directly from reported
-conversion and yield, and with publication-grouped nested cross-validation over
-278 pipelines, the selected classifiers reach a macro-F1 of \FoneCtwo{} for
-identifying high-performance systems and a weighted-F1 of \FoneCthreePW{} on the
-three-class scheme of the reference methodology, clearly above majority-class
-baselines. Oversampling had little effect on these scores. Random-forest
+conversion and yield, publication-grouped nested cross-validation, and decision
+rules tuned for macro-F1, the selected models reach a macro-F1 of \FoneCtwo{}
+for identifying high-performance systems and a weighted-F1 of \FoneCthreePW{}
+on the three-class scheme of the reference methodology, clearly above
+majority-class baselines. Tuning the decision rule improved macro-F1 on every
+class scheme, whereas oversampling had little effect. Random-forest
 surrogates coupled with four-objective NSGA-II converge rapidly and identify
 Ni--Cu, nanostructured, alkaline, TEMPO-mediated systems near 1.42--1.44~V vs.\
 RHE as the most promising region of the descriptor space. Experimental testing
@@ -650,7 +725,7 @@ confirmed and fed back into the model.
 % ==================================================================
 \section*{Data and code availability}
 The curated dataset, preprocessing, classification and optimization scripts
-(\texttt{01\_preprocess\_data.py} to \texttt{09\_f1\_optimization.py}) and the
+(\texttt{01\_preprocess\_data.py} to \texttt{10\_f1\_improved.py}) and the
 result files are available in the project repository
 (\url{https://github.com/Nishit-Garg-GitHub/Chemical_Ml}). All results were
 obtained with Python, scikit-learn~1.9.1, imbalanced-learn~0.14.2, pandas~3.1.0

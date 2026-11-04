@@ -1,4 +1,36 @@
-# F1 optimisation results (`09_f1_optimization.py`)
+# F1 optimisation results
+
+## Current best: `10_f1_improved.py`
+
+Same data, class schemes, publication-grouped splits and nested protocol as
+`09_f1_optimization.py` (below), plus decision rules tuned for macro-F1 inside
+the inner folds (per-class probability weights for classifiers, cut-offs for
+regress-then-bin models), a soft-vote ensemble of the three best classifiers,
+anode-only Pt and reporting flags (73 features, 44 candidates). Outer test
+folds never influence model choice, weights or cut-offs.
+
+Nested CV, five outer seeds (`results/improved_nested_results.csv`):
+
+| scheme | macro-F1 | weighted-F1 | majority-class macro-F1 |
+|---|---|---|---|
+| K2_high | 0.687 +- 0.042 | 0.741 | 0.420 |
+| K3_paper | 0.517 +- 0.040 | 0.834 | 0.310 |
+| K3_yield | 0.459 +- 0.027 | 0.503 | 0.240 |
+| K4_yield | 0.398 +- 0.038 | 0.491 | 0.180 |
+| K5_paper | 0.355 +- 0.036 | 0.466 | 0.141 |
+
+Same outer splits as `09` (seeds 100-101), macro-F1: K2_high 0.610 -> 0.693,
+K3_paper 0.460 -> 0.502, K3_yield 0.445 -> 0.482, K4_yield 0.367 -> 0.388,
+K5_paper 0.327 -> 0.335. Weighted-F1 also rises on every scheme. The
+seed-to-seed s.d. (0.03-0.04) is as large as the K4/K5 gains.
+
+Most-selected candidates over 125 outer folds: soft-vote ensemble 40, neural
+network 21, class-weighted extra trees 19, class-weighted logistic regression
+12, regress-then-bin models 16.
+
+---
+
+## Reference protocol: `09_f1_optimization.py`
 
 Objective (Li et al., ACS Sustain. Chem. Eng. 2025, 13, 13940): predict the
 catalytic performance class of an HMF -> FDCA experiment from catalyst and

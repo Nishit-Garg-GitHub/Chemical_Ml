@@ -33,7 +33,8 @@ tables from scripts 02–08 are written to `outputs/`.
 | `06_shap_analysis.py` | SHAP feature importance for K = 3 and K = 5 |
 | `07_shap_extra_figures.py` | SHAP beeswarm and impact-trajectory figures |
 | `08_genetic algorithms.py` | Random-forest surrogates + four-objective NSGA-II |
-| `09_f1_optimization.py` | Leakage-safe, publication-grouped, nested-CV F1 optimization (see `RESULTS.md`) |
+| `09_f1_optimization.py` | Leakage-safe, publication-grouped, nested-CV F1 screen of 278 pipelines (reference protocol) |
+| `10_f1_improved.py` | Best current classifier: macro-F1-tuned decision rules, regress-then-bin models and ensembles under the same nested protocol (see `RESULTS.md`) |
 
 Run them from any directory, for example:
 
@@ -41,6 +42,7 @@ Run them from any directory, for example:
 python 01_preprocess_data.py
 python "08_genetic algorithms.py"
 python 09_f1_optimization.py all      # modes: stage1 | nested | all
+python 10_f1_improved.py              # optional: scheme names, e.g. K2_high
 ```
 
 ## Results and paper
