@@ -21,7 +21,8 @@
 # 09_f1_optimization.py, so the scores compare directly.
 #
 # USAGE:
-#   python 10_f1_improved.py [scheme ...]
+#   python 10_f1_improved.py [--record] [--rhe] [--text] [scheme ...]
+#   schemes: K2_high K3_paper K3_yield K4_yield K5_paper KM3 KM4 KM5
 # ============================================================
 
 import importlib.util
@@ -46,7 +47,9 @@ from sklearn.ensemble import (
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.cluster import KMeans
 from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
@@ -66,18 +69,55 @@ OUTER_SEEDS = [100, 101, 102, 103, 104]
 INNER_SEEDS = [1000, 1001]
 OUT_DIR = ROOT / "results"
 
+# "group": records of one publication never straddle train/test (default).
+# "record": stratified record-level splits, as in the reference study;
+#           records of the same publication can appear on both sides.
+SPLIT = "group"
+
 # Regression target per scheme (the quantity the classes are cut from)
 REG_TARGET = {
     "K2_high": "Perf", "K3_paper": "Perf", "K5_paper": "Perf",
     "K3_yield": "Yld", "K4_yield": "Yld",
+    "KM3": "Perf", "KM4": "Perf", "KM5": "Perf",
 }
+
+
+def splits(y, groups, n_splits, seed):
+    if SPLIT == "record":
+        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+        return list(cv.split(np.zeros(len(y)), y))
+    return base.grouped_splits(y, groups, n_splits, seed)
+
+
+def prepare(df, feats, scheme):
+    """Threshold schemes come from 09. KM<k> schemes follow the reference
+    study: K-means on standardized conversion and yield of the records
+    that report both, clusters numbered by increasing mean performance."""
+    if not scheme.startswith("KM"):
+        return base.prepare(df, feats, scheme)
+    sub = base.with_perf(df)
+    sub = sub[sub["Conversion_pct"].notna()].reset_index(drop=True)
+    Z = sub[["Conversion_pct", "Yield_pct"]].to_numpy(dtype=float)
+    Z = (Z - Z.mean(0)) / Z.std(0)
+    km = KMeans(n_clusters=int(scheme[2:]), n_init=50, random_state=SEED).fit(Z)
+    order = np.argsort([sub["Perf"][km.labels_ == c].mean() for c in range(km.n_clusters)])
+    y = np.argsort(order)[km.labels_]
+    return sub, sub[feats].to_numpy(dtype=float), y, sub["Paper"].to_numpy()
 
 # ============================================================
 # 1. FEATURES
 # ============================================================
 
 
-def load_features():
+def anode_text(raw):
+    cat = raw["Catalysts"].astype(str)
+    return cat.str.split(r"[Cc]athode").str[0].str.replace(r"(?i)anode\s*:?", "", regex=True)
+
+
+def load_features(extra=()):
+    """extra: "rhe" adds the potential-reference flag; "text" adds 12
+    latent components of character n-grams of the anode catalyst name
+    (fitted on the descriptor text only, never on outcomes)."""
     df = base.load_data()
     feats = base.feature_columns(df)
     # Pt: anode only. Noble metal: recomputed without counter electrodes.
@@ -90,6 +130,18 @@ def load_features():
         df[name] = df[col].notna().astype(int)
     feats = [f for f in feats if f not in ("Catalyst_Pt", "Pt_Cathode")]
     feats += ["Reported_Temperature", "Reported_Potential", "Reported_Current"]
+    if "rhe" in extra:
+        feats.append("Potential_vs_RHE")
+    if "text" in extra:
+        from sklearn.decomposition import TruncatedSVD
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        raw = pd.read_excel(base.RAW_FILE)
+        tf = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), lowercase=False,
+                             min_df=2, sublinear_tf=True).fit_transform(anode_text(raw))
+        Z = TruncatedSVD(n_components=12, random_state=SEED).fit_transform(tf)
+        for i in range(Z.shape[1]):
+            df[f"AnodeText_{i}"] = Z[:, i]
+            feats.append(f"AnodeText_{i}")
     return df, feats
 
 
@@ -247,7 +299,7 @@ def inner_oof(c, X, y, r, groups, n_classes):
     out = []
     for s in INNER_SEEDS:
         oof = np.zeros((len(y), n_classes)) if not is_reg(c[0]) else np.zeros(len(y))
-        for tr, te in base.grouped_splits(y, groups, 3, s):
+        for tr, te in splits(y, groups, 3, s):
             oof[te] = fit_scores(*c, X[tr], y[tr], r[tr], X[te], n_classes)
         out.append(oof)
     return np.concatenate(out), np.tile(y, len(INNER_SEEDS))
@@ -275,12 +327,12 @@ def one_outer(X, y, r, groups, tr, te, n_classes, cands):
 
 
 def nested(df, feats, scheme):
-    sub, X, y, groups = base.prepare(df, feats, scheme)
+    sub, X, y, groups = prepare(df, feats, scheme)
     r = sub[REG_TARGET[scheme]].to_numpy(dtype=float)
     n_classes = int(y.max()) + 1
     cands = candidate_list()
     jobs = [(seed, tr, te) for seed in OUTER_SEEDS
-            for tr, te in base.grouped_splits(y, groups, 5, seed)]
+            for tr, te in splits(y, groups, 5, seed)]
     res = Parallel(n_jobs=-1)(
         delayed(one_outer)(X, y, r, groups, tr, te, n_classes, cands) for _, tr, te in jobs)
     per_seed = {}
@@ -305,8 +357,14 @@ def nested(df, feats, scheme):
 if __name__ == "__main__":
     from collections import Counter
 
-    schemes = sys.argv[1:] or base.SCHEMES
-    df, feats = load_features()
+    args = sys.argv[1:]
+    if "--record" in args:
+        SPLIT = "record"
+        args.remove("--record")
+    extra = [a[2:] for a in args if a in ("--rhe", "--text")]
+    args = [a for a in args if a not in ("--rhe", "--text")]
+    schemes = args or base.SCHEMES
+    df, feats = load_features(extra)
     print(f"Features: {len(feats)}  candidates: {len(candidate_list())}", flush=True)
     all_rows = []
     for scheme in schemes:
@@ -320,4 +378,8 @@ if __name__ == "__main__":
               f"all seeds={r.macro_f1.mean():.3f}+-{r.macro_f1.std(ddof=0):.3f} "
               f"weighted={r.weighted_f1.mean():.3f} per-class={rows[0]['per_class_f1']} "
               f"chosen={top} ({time.time()-t:.0f}s)", flush=True)
-        pd.DataFrame(all_rows).to_csv(OUT_DIR / "improved_nested_results.csv", index=False)
+        name = "improved_nested_results" + ("_record" if SPLIT == "record" else "")
+        name += "".join("_" + e for e in extra)
+        if args:
+            name += "_" + "_".join(args)
+        pd.DataFrame(all_rows).to_csv(OUT_DIR / f"{name}.csv", index=False)
