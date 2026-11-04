@@ -56,9 +56,11 @@ warnings.filterwarnings("ignore")
 # 1. SETTINGS
 # ============================================================
 
-DATA_FILE = r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-OUTPUT_DIR = r"D:\chemical_ml\KMeans_Oversampling"
+DATA_FILE = os.path.join(ROOT, "HMF_ML_Preprocessed.xlsx")
+
+OUTPUT_DIR = os.path.join(ROOT, "outputs", "KMeans_Oversampling")
 
 os.makedirs(
     OUTPUT_DIR,
@@ -1127,7 +1129,7 @@ from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler
 # 23.1 LOAD DATA AND DEFINE VALID ROWS
 # ============================================================
 
-CLEAN_FILE = r"D:\chemical_ml\HMF_Cleaned_Full_Dataset.xlsx"
+CLEAN_FILE = os.path.join(ROOT, "HMF_Cleaned_Full_Dataset.xlsx")
 
 clean_df = pd.read_excel(CLEAN_FILE)
 

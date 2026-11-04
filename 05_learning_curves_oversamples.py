@@ -32,7 +32,7 @@
 # K=6 raw paper proportions: 150, 81, 49, 55, 30, 21
 #
 # Output:
-#   D:\chemical_ml\KMeans_Oversampling\
+#   outputs/KMeans_Oversampling/
 #       Figure_11_Oversampled_NN_Learning_Curves.png
 # ============================================================
 
@@ -62,9 +62,11 @@ warnings.filterwarnings("ignore")
 # 1. SETTINGS
 # ============================================================
 
-DATA_FILE = r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-OUTPUT_DIR = r"D:\chemical_ml\KMeans_Oversampling"
+DATA_FILE = os.path.join(ROOT, "HMF_ML_Preprocessed.xlsx")
+
+OUTPUT_DIR = os.path.join(ROOT, "outputs", "KMeans_Oversampling")
 
 os.makedirs(
     OUTPUT_DIR,

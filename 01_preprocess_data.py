@@ -14,21 +14,15 @@ from pathlib import Path
 # 1. FILE PATH
 # ============================================================
 
-FILE_PATH = Path(
-    r"D:\chemical_ml\Nishith_Summary Table of different cell types.xlsx"
-)
+ROOT = Path(__file__).resolve().parent
 
-OUTPUT_FULL = Path(
-    r"D:\chemical_ml\HMF_Cleaned_Full_Dataset.xlsx"
-)
+FILE_PATH = ROOT / "Nishith_Summary Table of different cell types.xlsx"
 
-OUTPUT_ML = Path(
-    r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
-)
+OUTPUT_FULL = ROOT / "HMF_Cleaned_Full_Dataset.xlsx"
 
-OUTPUT_CSV = Path(
-    r"D:\chemical_ml\HMF_ML_Preprocessed.csv"
-)
+OUTPUT_ML = ROOT / "HMF_ML_Preprocessed.xlsx"
+
+OUTPUT_CSV = ROOT / "HMF_ML_Preprocessed.csv"
 
 
 # ============================================================

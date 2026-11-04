@@ -20,10 +20,10 @@
 # published paper.
 #
 # INPUT:
-#   D:\chemical_ml\HMF_ML_Preprocessed.xlsx
+#   HMF_ML_Preprocessed.xlsx
 #
 # OUTPUT:
-#   D:\chemical_ml\KMeans_Oversampling\SHAP\
+#   outputs/KMeans_Oversampling/SHAP/
 #
 #   Figure_13_SHAP_Beeswarm_K3.png
 #   Figure_13_SHAP_Beeswarm_K5.png
@@ -66,9 +66,11 @@ import shap
 # 1. SETTINGS
 # ============================================================
 
-DATA_FILE = r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-OUTPUT_DIR = r"D:\chemical_ml\KMeans_Oversampling\SHAP"
+DATA_FILE = os.path.join(ROOT, "HMF_ML_Preprocessed.xlsx")
+
+OUTPUT_DIR = os.path.join(ROOT, "outputs", "KMeans_Oversampling", "SHAP")
 
 os.makedirs(
     OUTPUT_DIR,

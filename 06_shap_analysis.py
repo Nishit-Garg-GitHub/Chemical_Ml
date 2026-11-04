@@ -19,8 +19,10 @@ from imblearn.pipeline import Pipeline
 from imblearn.over_sampling import SMOTE
 import shap
 
-DATA_FILE = r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
-OUTPUT_DIR = r"D:\chemical_ml\KMeans_Oversampling\SHAP"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+DATA_FILE = os.path.join(ROOT, "HMF_ML_Preprocessed.xlsx")
+OUTPUT_DIR = os.path.join(ROOT, "outputs", "KMeans_Oversampling", "SHAP")
 RANDOM_STATE = 42
 K_VALUES = [3, 5]
 TEST_SIZE = 0.20

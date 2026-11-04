@@ -40,9 +40,11 @@ from scipy.spatial import ConvexHull
 # 1. SETTINGS
 # ============================================================
 
-DATA_FILE = r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-OUTPUT_DIR = r"D:\chemical_ml\KMeans_Figure6"
+DATA_FILE = os.path.join(ROOT, "HMF_ML_Preprocessed.xlsx")
+
+OUTPUT_DIR = os.path.join(ROOT, "outputs", "KMeans_Figure6")
 
 os.makedirs(
     OUTPUT_DIR,

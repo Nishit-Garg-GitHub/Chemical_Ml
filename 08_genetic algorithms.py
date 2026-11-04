@@ -59,8 +59,10 @@ warnings.filterwarnings("ignore")
 # 1. CONFIGURATION
 # ============================================================
 
-DATA_FILE = r"D:\chemical_ml\HMF_ML_Preprocessed.xlsx"
-OUTPUT_DIR = r"D:\chemical_ml\KMeans_Oversampling\NSGA_II_V2"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+DATA_FILE = os.path.join(ROOT, "HMF_ML_Preprocessed.xlsx")
+OUTPUT_DIR = os.path.join(ROOT, "outputs", "KMeans_Oversampling", "NSGA_II_V2")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
