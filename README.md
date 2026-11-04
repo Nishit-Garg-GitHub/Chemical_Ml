@@ -47,6 +47,7 @@ python 10_f1_improved.py              # optional: scheme names, e.g. K2_high
 
 ## Results and paper
 
-- `RESULTS.md` and `results/` hold the classification results of `09_f1_optimization.py`.
+- `RESULTS.md` and `results/` hold the classification results of `09_f1_optimization.py`
+  and `10_f1_improved.py`.
 - `paper/` holds the manuscript (`main.tex`, `references.bib`, `figures/`) and the
   compiled `main.pdf`. Rebuild it with `tectonic -X compile paper/main.tex`.
