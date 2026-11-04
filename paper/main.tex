@@ -42,6 +42,11 @@
 \newcommand{\FoneCfourYW}{0.491}     \newcommand{\BaseCfourY}{0.180}
 \newcommand{\FoneCfiveP}{0.355}      \newcommand{\FoneCfivePSD}{0.036}
 \newcommand{\FoneCfivePW}{0.466}     \newcommand{\BaseCfiveP}{0.141}
+% Best two-class results with anode-text features (85 features)
+\newcommand{\FoneCtwoText}{0.728}    \newcommand{\FoneCtwoTextSD}{0.028}
+% Record-level splits (reference-study protocol), anode-text features
+\newcommand{\RecCtwo}{0.774}         \newcommand{\RecCtwoW}{0.817}
+\newcommand{\RecCthreePW}{0.842}
 % Surrogate regression (08_genetic algorithms.py, 80/20 split)
 \newcommand{\ConvRMSE}{3.08}   \newcommand{\ConvRsq}{-0.91}
 \newcommand{\YldRMSE}{11.98}   \newcommand{\YldRsq}{-0.05}
@@ -80,7 +85,12 @@ classifiers and soft-vote ensembles, the selected models reach a macro-F1 of
 \FoneCtwo{}\,$\pm$\,\FoneCtwoSD{} for discriminating high-performance
 ($\geq$90\%) systems, against \BaseCtwo{} for a majority-class predictor, and a
 macro-F1 of \FoneCthreeP{} (weighted-F1 \FoneCthreePW{}) on the three-class
-scheme of the reference methodology. Random-forest surrogates coupled with
+scheme of the reference methodology. Character n-gram descriptors of the anode
+catalyst name raise the two-class macro-F1 to \FoneCtwoText{}. Under the
+record-level splits used by the reference study, the two-class macro-F1 reaches
+\RecCtwo{} (weighted-F1 \RecCtwoW{}) and the three-class weighted-F1
+\RecCthreePW{}. Support-vector machines and neural networks outperform random
+forests and decision trees under identical tuning. Random-forest surrogates coupled with
 NSGA-II (population 100, 100 generations) produced a fully populated
 four-objective Pareto front within 0.2~min; the best-compromise candidate
 combines a Ni--Cu, carbon-supported, nanostructured LDH anode descriptor set
@@ -222,6 +232,14 @@ anode-only Pt flag, the noble-metal indicator and metal count are recomputed
 accordingly, and three flags record whether temperature, potential and current
 are reported, giving 73 features.
 
+\paragraph{Catalyst-name descriptors.} As an optional extension, the anode part
+of each catalyst description (for example ``NiCo$_2$O$_4$/Ni foam'') is
+represented by TF-IDF-weighted character 2--4-grams, compressed to 12 latent
+components by truncated singular value decomposition, giving 85 features. These
+components capture shared composition and morphology terms across publications.
+They are computed from the descriptor text alone, without access to any
+outcome.
+
 \paragraph{Leakage control.} Conversion, yield, FE and selectivity are never
 used as inputs, nor are free-text fields that describe outcomes (key feature,
 advantages, limitations). The publication title is used only as a grouping
@@ -351,6 +369,14 @@ biased~\cite{varma2006bias,cawley2010overfitting}. The same nested procedure
 applied to the 278-pipeline screen with plain most-probable-class prediction
 serves as the reference protocol.
 
+\paragraph{Record-level protocol.} For comparison with the reference
+study~\cite{li2025hmf}, which splits individual records by stratified random
+sampling, the nested evaluation is repeated with stratified record-level
+folds. Oversampling and all tuning remain confined to training folds. Because
+records from one publication can then appear in both training and test folds,
+these scores measure interpolation within known studies and are reported
+separately from the publication-grouped results.
+
 \paragraph{Metrics.} The primary metric is macro-averaged F1, which weights all
 classes equally and is therefore sensitive to the minority classes; the
 support-weighted F1 is also reported~\cite{sokolova2009systematic}. A
@@ -391,7 +417,7 @@ and is not an NSGA-II objective.
               font=\footnotesize, minimum height=9mm, text width=24mm},
   arr/.style={-{Stealth[length=2mm]}, thick}]
 \node[box] (a) {Literature dataset\\154 records, 99 papers};
-\node[box, right=of a] (b) {Feature\\construction\\(73 / 30 features)};
+\node[box, right=of a] (b) {Feature\\construction\\(73--85 / 30)};
 \node[box, right=of b] (c) {Performance\\classes\\(5 schemes)};
 \node[box, right=of c] (d) {Grouped nested CV\\tuned decision\\rules, ensembles};
 \node[box, below=of d] (e) {SHAP\\interpretation};
@@ -498,33 +524,76 @@ This gap is the optimism introduced by choosing one pipeline from 278 on the
 same folds, and it is why nested scores are used throughout. The smaller,
 rule-tuned pool of the final models halves this gap on C2 (0.076).
 
-\paragraph{Classifier families.} \Cref{tab:families} lists the screening
-macro-F1 of the four model families used in the reference
-study~\cite{li2025hmf}, each with fixed default settings and SMOTE or ADASYN.
-No family is uniformly best: random forest leads on C2, C3-Y and C5-P, the
-neural network on C3-P and C4-Y, while the support-vector machine is weakest on
-every scheme with more than two classes. The pipelines most often chosen in
-the nested loop were similarly diverse (support-vector, logistic-regression,
-$k$-nearest-neighbour, tree-ensemble and neural-network models), which
-indicates that the achievable score is limited by the data rather than by the
-model class.
+\paragraph{Feature set and split protocol.} \Cref{tab:protocols} reports
+the final pool under both split protocols, with and without the catalyst-name
+descriptors. With publication-grouped splits, the catalyst-name descriptors
+raise the two-class macro-F1 from \FoneCtwo{} to \FoneCtwoText{}
+(weighted-F1 0.779) but lower it by 0.01--0.06 on the multi-class schemes,
+where the extra 12 dimensions dilute the few minority records. With
+record-level splits, every macro-F1 rises, by 0.03--0.11: the two-class macro-F1
+reaches \RecCtwo{} (weighted-F1 \RecCtwoW{}, class-wise F1 0.63--0.71 and
+0.86--0.89), and the three-class C3-P weighted-F1 reaches \RecCthreePW{}. The
+difference between the two protocols measures how much of the predictive
+signal is shared between records of the same publication rather than
+transferable to new studies.
 
 \begin{table}[t]
 \centering
-\caption{Screening macro-F1 of the reference study's four model families with
-fixed settings and SMOTE/ADASYN (5$\times$5-fold grouped CV). Bold marks the
-best family per scheme.}
-\label{tab:families}
+\caption{Nested macro-F1 (weighted-F1 in parentheses) of the final pool for both
+split protocols and feature sets (five outer seeds). Base: 73 descriptors;
++\,text: with 12 catalyst-name components (85 descriptors).}
+\label{tab:protocols}
 \small
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lcccc}
 \toprule
-Scheme & Decision tree & SVM & Random forest & Neural network \\
+& \multicolumn{2}{c}{Publication-grouped} & \multicolumn{2}{c}{Record-level} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Scheme & Base & +\,text & Base & +\,text \\
 \midrule
-C2   & 0.611 & 0.543 & \textbf{0.627} & 0.597 \\
-C3-P & 0.516 & 0.305 & 0.473 & \textbf{0.526} \\
-C3-Y & 0.422 & 0.371 & \textbf{0.477} & 0.442 \\
-C4-Y & 0.420 & 0.239 & 0.436 & \textbf{0.486} \\
-C5-P & 0.282 & 0.236 & \textbf{0.398} & 0.372 \\
+C2   & 0.687 (0.741) & 0.728 (0.779) & 0.767 (0.815) & 0.774 (0.817) \\
+C3-P & 0.517 (0.834) & 0.462 (0.807) & 0.554 (0.833) & 0.569 (0.842) \\
+C3-Y & 0.459 (0.503) & 0.416 (0.477) & 0.492 (0.546) & 0.512 (0.568) \\
+C4-Y & 0.398 (0.491) & 0.388 (0.497) & 0.447 (0.552) & 0.472 (0.583) \\
+C5-P & 0.355 (0.466) & 0.346 (0.469) & 0.433 (0.535) & 0.394 (0.499) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Classifier families.} To compare the four model families of the
+reference study~\cite{li2025hmf} on equal terms, each family was run alone
+through the full nested procedure: the same tuned decision rules, optional
+SMOTE, optional feature selection and catalyst-name descriptors
+(\texttt{11\_family\_comparison.py}). \Cref{tab:families} shows that the
+support-vector machine has the highest macro-F1 in all four settings and the
+neural network the highest weighted-F1 in three of them, with differences of
+0.002--0.022 that are smaller than the seed-to-seed spread. Random forest
+trails the leaders by 0.01--0.05, and the decision tree is 0.07--0.11 below the
+leader in every setting. Strongly regularized margin- and network-based models
+thus generalize best on this small dataset, whereas a random forest led for
+the larger dataset of the reference study. Selecting from the full pool, with
+its ensembles, exceeds the best single family by 0.01--0.02 on C2, but on C3-P
+the SVM alone scores higher, by 0.03--0.04; with so few minority records,
+selecting among many candidates costs as much as it gains.
+
+\begin{table}[t]
+\centering
+\caption{Nested macro-F1 (weighted-F1 in parentheses) of the four model families
+of the reference study under identical tuning (five outer seeds, catalyst-name
+descriptors). Bold marks the best family per column.}
+\label{tab:families}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{Publication-grouped} & \multicolumn{2}{c}{Record-level} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Family & C2 & C3-P & C2 & C3-P \\
+\midrule
+Decision tree  & 0.634 (0.707) & 0.431 (0.786) & 0.674 (0.735) & 0.488 (0.814) \\
+Random forest  & 0.703 (0.757) & 0.478 (0.823) & 0.743 (0.792) & 0.556 (0.839) \\
+SVM            & \textbf{0.716} (0.763) & \textbf{0.503} (0.824) & \textbf{0.756} (\textbf{0.801}) & \textbf{0.602} (0.843) \\
+Neural network & 0.714 (\textbf{0.769}) & 0.481 (\textbf{0.828}) & 0.737 (0.786) & 0.585 (\textbf{0.845}) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -559,14 +628,20 @@ C5-P & 0.399 & 0.397 & 0.405 & 0.400 & 0.388 \\
 \end{table}
 
 \paragraph{Comparison with the reference study.} The reference workflow reports
-F1 scores of about 0.8 on 379 thermocatalytic records whose descriptors include
-pressure, reaction time and alkali loading, and whose classes come from K-means
-clusters~\cite{li2025hmf}. The present dataset is a third of that size,
-covers a different reaction route, lacks those process variables, and is
-strongly skewed: 87\% of records exceed 80\% performance. In addition, our
-splits hold out whole publications, which is a stricter test than record-level
-splitting. The two sets of scores therefore measure different tasks and should
-not be compared directly.
+F1 scores of about 0.85 for three classes on 379 thermocatalytic records whose
+descriptors include pressure, reaction time and alkali loading, using
+record-level stratified splits and classes from K-means
+clusters~\cite{li2025hmf}. Under record-level splits, the present models reach
+a comparable three-class weighted-F1 of \RecCthreePW{}. The macro-F1 is lower
+because the present dataset is a third of that size, covers a different
+reaction route, lacks those process variables, and is strongly skewed: 87\% of
+records exceed 80\% performance, and the two lower classes contain 9 and 7
+records. K-means clustering of conversion and yield, applied to the present
+data, yields clusters of 3, 9 and 90 records for $K = 3$ and single-record
+clusters for $K \geq 4$, which is why fixed thresholds were used instead. In
+the reference study the reported accuracy, precision and recall are nearly
+identical, as expected for class-balanced evaluation data; here all test
+folds retain the original class distribution.
 
 \subsection{Model interpretation}
 \label{sec:shap}
@@ -698,7 +773,8 @@ The dataset contains 123 usable classification records and 102 complete
 regression records, drawn from studies that mix potentiostatic,
 galvanostatic and cell-voltage control. Temperature is missing in 41\% of
 records and current in 90\%. Minority performance classes contain fewer than
-ten records each, and the Pt descriptor mainly encodes the counter electrode.
+ten records each, which limits macro-F1 regardless of the model, and the Pt
+descriptor mainly encodes the counter electrode.
 Explicit solvent, reaction-time and catalyst-loading descriptors are not
 available, so these variables cannot be optimized.
 
@@ -714,7 +790,12 @@ rules tuned for macro-F1, the selected models reach a macro-F1 of \FoneCtwo{}
 for identifying high-performance systems and a weighted-F1 of \FoneCthreePW{}
 on the three-class scheme of the reference methodology, clearly above
 majority-class baselines. Tuning the decision rule improved macro-F1 on every
-class scheme, whereas oversampling had little effect. Random-forest
+class scheme, whereas oversampling had little effect. Catalyst-name
+descriptors raise the two-class macro-F1 to \FoneCtwoText{}, and under the
+record-level splits of the reference study the models reach a two-class
+macro-F1 of \RecCtwo{} and a three-class weighted-F1 of \RecCthreePW{}.
+Support-vector machines and neural networks consistently outperform random
+forests and decision trees. Random-forest
 surrogates coupled with four-objective NSGA-II converge rapidly and identify
 Ni--Cu, nanostructured, alkaline, TEMPO-mediated systems near 1.42--1.44~V vs.\
 RHE as the most promising region of the descriptor space. Experimental testing
@@ -725,7 +806,7 @@ confirmed and fed back into the model.
 % ==================================================================
 \section*{Data and code availability}
 The curated dataset, preprocessing, classification and optimization scripts
-(\texttt{01\_preprocess\_data.py} to \texttt{10\_f1\_improved.py}) and the
+(\texttt{01\_preprocess\_data.py} to \texttt{11\_family\_comparison.py}) and the
 result files are available in the project repository
 (\url{https://github.com/Nishit-Garg-GitHub/Chemical_Ml}). All results were
 obtained with Python, scikit-learn~1.9.1, imbalanced-learn~0.14.2, pandas~3.1.0

@@ -28,6 +28,39 @@ Most-selected candidates over 125 outer folds: soft-vote ensemble 40, neural
 network 21, class-weighted extra trees 19, class-weighted logistic regression
 12, regress-then-bin models 16.
 
+### Split protocol and feature set
+
+Macro-F1 (weighted-F1), five outer seeds. Base: 73 descriptors. `+text`: 12
+character-n-gram components of the anode catalyst name (85 descriptors).
+Record-level splits follow the reference study and allow records of one paper
+on both sides of a split.
+
+| scheme | grouped, base | grouped, +text | record, base | record, +text |
+|---|---|---|---|---|
+| K2_high | 0.687 (0.741) | 0.728 (0.779) | 0.767 (0.815) | 0.774 (0.817) |
+| K3_paper | 0.517 (0.834) | 0.462 (0.807) | 0.554 (0.833) | 0.569 (0.842) |
+| K3_yield | 0.459 (0.503) | 0.416 (0.477) | 0.492 (0.546) | 0.512 (0.568) |
+| K4_yield | 0.398 (0.491) | 0.388 (0.497) | 0.447 (0.552) | 0.472 (0.583) |
+| K5_paper | 0.355 (0.466) | 0.346 (0.469) | 0.433 (0.535) | 0.394 (0.499) |
+
+Files: `improved_nested_results.csv`, `_text.csv`, `_record.csv`,
+`_record_text.csv`. The `*_K2_high_K3_paper.csv` files are exploratory runs
+on two schemes (including `--rhe`).
+
+K-means classes (`KM3`-`KM5`) are not learnable here: K = 3 gives clusters of
+3 / 9 / 90 records and K >= 4 gives single-record clusters.
+
+### Model families under identical tuning (`11_family_comparison.py`)
+
+Macro-F1 (weighted-F1), five outer seeds, +text descriptors.
+
+| family | grouped K2 | grouped K3_paper | record K2 | record K3_paper |
+|---|---|---|---|---|
+| Decision tree | 0.634 (0.707) | 0.431 (0.786) | 0.674 (0.735) | 0.488 (0.814) |
+| Random forest | 0.703 (0.757) | 0.478 (0.823) | 0.743 (0.792) | 0.556 (0.839) |
+| SVM | **0.716** (0.763) | **0.503** (0.824) | **0.756** (**0.801**) | **0.602** (0.843) |
+| Neural network | 0.714 (**0.769**) | 0.481 (**0.828**) | 0.737 (0.786) | 0.585 (**0.845**) |
+
 ---
 
 ## Reference protocol: `09_f1_optimization.py`
